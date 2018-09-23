@@ -7,11 +7,8 @@ from sklearn.metrics import f1_score
 from sklearn.model_selection import GridSearchCV
 from sklearn.feature_selection import chi2
 from sklearn.feature_selection import SelectKBest
-import logging
-
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s [%(levelname)s] <%(processName)s> (%(threadName)s) %(message)s')
-logger = logging.getLogger(__name__)
+from Logger import logger
+import config
 
 
 class TextClassifier():
@@ -19,14 +16,16 @@ class TextClassifier():
     def __init__(self, vectorizer, classifier=MultinomialNB()):
         classifier = SVC(kernel="linear", cache_size=600)
         # classifier = SVC(kernel="linear")
-        params = {'C': [1, 10, 100, 1000], 'gamma': [0.01, 0.001, 0.0001]}
-        self.classifier = GridSearchCV(classifier, params, verbose=3, n_jobs=10)
+        params = {'C': [1, 10, 100, 1000]}
+        # params = {'C': [1, 10, 100, 1000], 'gamma': [0.01, 0.001, 0.0001]}
+        self.classifier = GridSearchCV(classifier, params, verbose=3, n_jobs=config.n_jobs)
         self.vectorizer = vectorizer
-        self.select = SelectKBest(chi2, k=1000)
+        self.select = SelectKBest(chi2, k=500)
 
     def features(self, x, y=None, train=False):
         if train:
             logger.info("select features")
+            # print self.vectorizer.transform(x)
             x = self.select.fit_transform(self.vectorizer.transform(x), y)
             logger.info("select feature done")
         else:
