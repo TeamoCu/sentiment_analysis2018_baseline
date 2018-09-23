@@ -116,16 +116,20 @@ def validate_traffic(validate_data, columns, mentioned_clf, clfs):
     predict = mentioned_clf.predict(validate_data_segs)
     predict = predict * -2
     for column in columns:
-        tmp_predict = predict
+        logger.debug("predict:%s", column)
+        tmp_predict = predict.copy()
+        file = io.open(config.predict_result_path + column + ".txt", "w", encoding="utf-8")
         for v_index, v_content_seg in enumerate(validate_data_segs):
             if tmp_predict[v_index] == 0:
                 tmp_predict[v_index] = clfs[column].predict([v_content_seg])
+            file.write(str(tmp_predict[v_index]) + u"\n")
+        file.close()
         score = f1_score(validate_data[column], tmp_predict, average='macro')
         scores[column] = score
 
     str_score = "\n"
     score = np.mean(list(scores.values()))
-    for column in columns[2:5]:
+    for column in columns:
         str_score = str_score + column + ":" + str(scores[column]) + "\n"
 
     logger.info("f1_scores: %s\n" % str_score)
