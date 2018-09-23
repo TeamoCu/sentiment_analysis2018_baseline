@@ -62,8 +62,6 @@ def train_traffic_mentioned(train_data, validate_data):
 
 def train_traffic_model(train_data, validate_data):
     logger.info("begin to train traffic model")
-    traffic_classifier = dict()
-    # logger.info("complete save model")
     # Get columns(model_name) from train data
     columns = train_data.columns.values.tolist()
     ori_df = train_data_df.iloc[0:config.train_data_size, [1, 2, 3, 4]]
@@ -93,12 +91,11 @@ def train_traffic_model(train_data, validate_data):
         logger.info("start train %s model" % column)
         positive_clf.fit(model_content_seg, positive_label)
         logger.info("complete train %s model" % column)
-        traffic_classifier[column] = positive_clf
         final_score = positive_clf.get_f1_score(validate_data_segs, validate_data.iloc[0:, [2 + index]])
         scors[column] = final_score
         logger.info("score for model:%s is %s ", column, str(final_score))
         logger.info("save traffic mentioned model")
-        joblib.dump(traffic_classifier, config.model_save_path + column + ".pkl")
+        joblib.dump(positive_clf, config.model_save_path + column + ".pkl")
     str_score = "\n"
     score = np.mean(list(scors.values()))
     for column in columns[2:5]:
@@ -107,7 +104,6 @@ def train_traffic_model(train_data, validate_data):
     logger.info("f1_scores: %s\n" % str_score)
     logger.info("f1_score: %s" % score)
     logger.info("complete validate model")
-    return traffic_classifier
 
 
 def validate_traffic(validate_data, columns, mentioned_clf, clfs):
