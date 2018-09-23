@@ -116,19 +116,21 @@ def validate_traffic(validate_data, columns, mentioned_clf, clfs):
     validate_data_segs = seg_words(content_validate)
     logger.debug("seg validate data done")
 
-    scors = dict()
+    scores = dict()
+    predict = mentioned_clf.predict(validate_data_segs)
+    predict = predict * -2
     for column in columns:
-        predict = mentioned_clf.predict(validate_data_segs)
-        predict = predict * -2
+        tmp_predict = predict
         for v_index, v_content_seg in enumerate(validate_data_segs):
-            if predict[v_index] == 0:
-                predict[v_index] = clfs[column].predict([v_content_seg])
-        score = f1_score(validate_data[column], predict, average='macro')
-        scors[column] = score
+            if tmp_predict[v_index] == 0:
+                tmp_predict[v_index] = clfs[column].predict([v_content_seg])
+        score = f1_score(validate_data[column], tmp_predict, average='macro')
+        scores[column] = score
+
     str_score = "\n"
-    score = np.mean(list(scors.values()))
+    score = np.mean(list(scores.values()))
     for column in columns[2:5]:
-        str_score = str_score + column + ":" + str(scors[column]) + "\n"
+        str_score = str_score + column + ":" + str(scores[column]) + "\n"
 
     logger.info("f1_scores: %s\n" % str_score)
     logger.info("f1_score: %s" % score)
@@ -153,48 +155,14 @@ if __name__ == '__main__':
     logger.info("########################################")
     train_data_df = load_data_from_csv(config.train_data_path)
     validate_data_df = load_data_from_csv(config.validate_data_path)
-    mentioned_clf = train_traffic_mentioned(train_data_df, validate_data_df)
-    clfs = train_traffic_model(train_data_df, validate_data_df)
+    train_traffic_mentioned(train_data_df, validate_data_df)
+    train_traffic_model(train_data_df, validate_data_df)
     columns = train_data_df.columns.values.tolist()[2:5]
-    validate_traffic(validate_data_df, columns, mentioned_clf, clfs)
+    m_clf = joblib.load(config.model_save_path + "traffic_mentioned.pkl")
 
-    # # model train
-    # logger.info("start train model")
-    # classifier_dict = dict()
-    # i = 0
-    # for column in columns[2:]:
-    #     label_train = train_data_df.iloc[0:train_data_size, 2 + i]
-    #     text_classifier = TextClassifier(vectorizer=vectorizer_tfidf)
-    #     logger.info("start train %s model" % column)
-    #     text_classifier.fit(content_train, label_train)
-    #     logger.info("complete train %s model" % column)
-    #     classifier_dict[column] = text_classifier
-    #     i += 1
-    #
-    # logger.info("complete train model")
-    #
-    # logger.info("start validate model")
-    # f1_score_dict = dict()
-    # for column in columns[2:]:
-    #     label_validate = validate_data_df[column]
-    #     text_classifier = classifier_dict[column]
-    #     score = text_classifier.get_f1_score(content_validate, label_validate)
-    #     f1_score_dict[column] = score
-    #
-    # score = np.mean(list(f1_score_dict.values()))
-    # str_score = "\n"
-    # for column in columns[2:]:
-    #     str_score = str_score + column + ":" + str(f1_score_dict[column]) + "\n"
-    #
-    # logger.info("f1_scores: %s\n" % str_score)
-    # logger.info("f1_score: %s" % score)
-    # logger.info("complete validate model")
-    #
-    # # save model
-    # logger.info("start save model")
-    # model_save_path = config.model_save_path
-    # if not os.path.exists(model_save_path):
-    #     os.makedirs(model_save_path)
-    #
-    # joblib.dump(classifier_dict, model_save_path + model_name)
-    # logger.info("complete save model")
+    clf_dict = dict()
+    for column in columns:
+        clf = joblib.load(config.model_save_path + column + ".pkl")
+        clf_dict[column] = clf
+
+    validate_traffic(validate_data_df, columns, m_clf["traffic_mentioned"], clf_dict)
