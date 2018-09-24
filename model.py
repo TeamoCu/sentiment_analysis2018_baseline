@@ -13,14 +13,16 @@ import config
 
 class TextClassifier():
 
-    def __init__(self, vectorizer, classifier=MultinomialNB()):
-        classifier = SVC(kernel="linear", cache_size=600)
+    def __init__(self, vectorizer, classifier=MultinomialNB(), class_weight='balanced'):
+        classifier = SVC(kernel="linear", cache_size=600, probability=True, class_weight=class_weight)
         # classifier = SVC(kernel="linear")
+        # params = {'C': [1, 10, 100, 1000], 'class_weight': [{0: w, -1: w} for w in [2, 3, 4, 5, 6]]}
         params = {'C': [1, 10, 100, 1000]}
         # params = {'C': [1, 10, 100, 1000], 'gamma': [0.01, 0.001, 0.0001]}
+
         self.classifier = GridSearchCV(classifier, params, verbose=3, n_jobs=config.n_jobs)
         self.vectorizer = vectorizer
-        self.select = SelectKBest(chi2, k=500)
+        self.select = SelectKBest(chi2, k=800)
 
     def features(self, x, y=None, train=False):
         if train:
@@ -38,6 +40,9 @@ class TextClassifier():
 
     def predict(self, x):
         return self.classifier.predict(self.features(x))
+
+    def predict_proba(self, x):
+        return self.classifier.predict_proba(self.features(x))
 
     def score(self, x, y):
         return self.classifier.score(self.features(x), y)

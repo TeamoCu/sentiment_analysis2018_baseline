@@ -19,6 +19,6 @@ test_data_predict_out_path = os.path.abspath('') + "/predict/testa.csv"
 
 # other
 log_path = os.path.abspath('') + "/logs/train.log"
-train_data_size = 10000
+train_data_size = 20000
 train_model_num = 1
-n_jobs = 4
+n_jobs = 10
