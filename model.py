@@ -1,7 +1,7 @@
 #!/user/bin/env python
 # -*- coding:utf-8 -*-
 
-from sklearn.svm import SVC
+from sklearn.svm import SVC, LinearSVC
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.metrics import f1_score
 from sklearn.model_selection import GridSearchCV
@@ -14,7 +14,7 @@ import config
 class TextClassifier():
 
     def __init__(self, vectorizer, classifier=MultinomialNB(), class_weight='balanced'):
-        classifier = SVC(kernel="linear", cache_size=600, probability=True, class_weight=class_weight)
+        classifier = LinearSVC(class_weight=class_weight)
         # classifier = SVC(kernel="linear")
         # params = {'C': [1, 10, 100, 1000], 'class_weight': [{0: w, -1: w} for w in [2, 3, 4, 5, 6]]}
         params = {'C': [1, 10, 100, 1000]}

@@ -1,41 +1,40 @@
 #!/user/bin/env python
 # -*- coding:utf-8 -*-
-from sklearn.metrics import f1_score
-from sklearn.metrics import precision_score, recall_score
+import io
+import os
 
-from data_process import load_data_from_csv, seg_words
-from model import TextClassifier
-from sklearn.feature_extraction.text import TfidfVectorizer
-import config
 import numpy as np
 from sklearn.externals import joblib
-import os
-import argparse
-import io
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import f1_score
+from sklearn.metrics import precision_score, recall_score, classification_report
+
+import config
 from Logger import logger
+from data_process import load_data_from_csv, seg_words
+from model import TextClassifier
 
 stopwords = [line.strip() for line in io.open(config.stop_word_path, 'r', encoding='utf-8').readlines()]
+vec_name = "tf-idf.vec"
 
 
 def train_mentioned(train_data, validate_data, model_name, start, end):
     logger.info("start train %s mentioned", model_name)
-    train_data_size = 30000
-    sum = (end - start + 1) * 2
+    train_data_size = config.train_data_size
+    sum_label_val = (end - start + 1) * 2
     column_list = range(start, end + 1)
     ori_labels = train_data.iloc[0:train_data_size, column_list]
     # convert labels ,
     # all the three labels equal -2 means mentioned this item,covert it to 1
     # else convert it to 0
-    train_label = ori_labels.T.sum().abs() // sum
+    train_label = ori_labels.T.sum().abs() // sum_label_val
 
     content_train = train_data_df.iloc[0:train_data_size, 1]
     # seg and vectorizer train data
     logger.debug("start seg train data")
     train_content_segs = seg_words(content_train)
     logger.debug("complete seg train data")
-    vectorizer_tfidf = TfidfVectorizer(analyzer='word', ngram_range=(1, 6), min_df=5, norm='l2', max_df=0.7,
-                                       stop_words=stopwords)
-    vectorizer_tfidf.fit(train_content_segs)
+    vectorizer_tfidf = joblib.load(config.model_save_path + vec_name)
     logger.debug("vocab shape: %s" % np.shape(vectorizer_tfidf.vocabulary_.keys()))
     logger.debug("begin to train data")
     mentioned_clf = TextClassifier(vectorizer=vectorizer_tfidf)
@@ -47,8 +46,10 @@ def train_mentioned(train_data, validate_data, model_name, start, end):
     validate_data_segs = seg_words(content_validate)
     logger.debug("complete seg validate data")
     ori_labels = validate_data.iloc[0:, column_list]
-    validate_labels = ori_labels.T.sum().abs() // sum
-    score = mentioned_clf.get_f1_score(validate_data_segs, validate_labels)
+    validate_labels = ori_labels.T.sum().abs() // sum_label_val
+    y_pre = mentioned_clf.predict(validate_data_segs)
+    report(validate_labels, y_pre)
+    score = f1_score(validate_labels, y_pre, average="macro")
     logger.info("validate done! %s mentioned model score:%s", model_name, str(score))
 
     if score > 0.8:
@@ -154,23 +155,9 @@ def train_service(train_data, validate_data, model_name):
     logger.info("complete validate model")
 
 
-def print_recall_and_precision(y_true, tmp_predict):
-    pre_0 = precision_score(y_true, tmp_predict, labels=[0], average='macro')
-    pre_1 = precision_score(y_true, tmp_predict, labels=[1], average='macro')
-    pre__2 = precision_score(y_true, tmp_predict, labels=[-2], average='macro')
-    pre__1 = precision_score(y_true, tmp_predict, labels=[-1], average='macro')
-    logger.info("precision for label 0:%s", str(pre_0))
-    logger.info("precision for label 1:%s", str(pre_1))
-    logger.info("precision for label -2:%s", str(pre__2))
-    logger.info("precision for label -1:%s", str(pre__1))
-    rec_0 = recall_score(y_true, tmp_predict, labels=[0], average="macro")
-    rec_1 = recall_score(y_true, tmp_predict, labels=[1], average="macro")
-    rec__2 = recall_score(y_true, tmp_predict, labels=[-2], average="macro")
-    rec__1 = recall_score(y_true, tmp_predict, labels=[-1], average="macro")
-    logger.info("recall for label 0:%s", str(rec_0))
-    logger.info("recall for label 1:%s", str(rec_1))
-    logger.info("recall for label -2:%s", str(rec__2))
-    logger.info("recall for label -1:%s", str(rec__1))
+def report(y_true, tmp_predict, model_name=""):
+    report_str = classification_report(y_true, tmp_predict)
+    logger.info("Report for model \s:\n\s", model_name, report_str)
 
 
 def validate_model(validate_data, columns, mentioned_clf, clfs):
@@ -194,7 +181,7 @@ def validate_model(validate_data, columns, mentioned_clf, clfs):
                 proba_str = str(proba)
             file.write(str(tmp_predict[v_index]) + proba_str + u"\n")
         file.close()
-        print_recall_and_precision(validate_data[column], tmp_predict)
+        report(validate_data[column], tmp_predict)
         score = f1_score(validate_data[column], tmp_predict, average='macro')
         scores[column] = score
 
@@ -218,18 +205,28 @@ def validate(model_name, columns_start, columns_end):
     validate_model(validate_data_df, columns, m_clf, clf_dict)
 
 
+def vectorizer():
+    logger.info("start to vectorizer content")
+    train_data = load_data_from_csv()
+    content_segs = seg_words(train_data.iloc[0:, 1])
+    tf_idf = TfidfVectorizer(ngram_range=(1, 6), min_df=2, norm="l2", max_df=0.3)
+    tf_idf.fit(content_segs)
+    joblib.dump(tf_idf, config.model_save_path + vec_name, compress=True)
+    logger.info("succes to save vectorizer")
+
+
 if __name__ == '__main__':
     logger.info("########################################")
-    logger.info("start load data")
+    logger.info("start train")
     logger.info("########################################")
     # load train data
-    validate_data_df = load_data_from_csv(config.validate_data_path)
     train_data_df = load_data_from_csv(config.train_data_path)
+    validate_data_df = load_data_from_csv(config.validate_data_path)
 
     models = [('service', 5, 8), ('traffic', 2, 4), ('price', 9, 11), ('enviorment', 12, 15)]
-    # for model in models:
-    # train_mentioned(train_data_df, validate_data_df, model[0], model[1], model[2])
-    # validate(model[0], model[1], model[2])
+    for model in models:
+        train_mentioned(train_data_df, validate_data_df, model[0], model[1], model[2])
+        # validate(model[0], model[1], model[2])
 
     # validate traffic
     # train_traffic(train_data_df, validate_data_df)
