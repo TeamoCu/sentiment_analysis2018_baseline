@@ -19,7 +19,7 @@ vec_name = "tf-idf.vec"
 models = [('service', 5, 8), ('traffic', 2, 4), ('price', 9, 11), ('enviorment', 12, 15)]
 
 
-def train_mentioned(train_data, train_segs, validate_data, validate_segs, vectorizer, train_model):
+def train_mentioned_model(train_data, train_segs, validate_data, validate_segs, vectorizer, train_model):
     model_name = train_model[0], start = train_model[1], end = train_model[2]
     logger.info("start train %s mentioned", model_name)
     train_data_size = config.train_data_size
@@ -225,13 +225,11 @@ def train_mentioned():
     vectorizer_tfidf = joblib.load(config.model_save_path + vec_name)
 
     for model in models:
-        train_mentioned(train_data_df, train_content_segs, validate_data_df, validate_segs, vectorizer_tfidf, model)
+        train_mentioned_model(train_data_df, train_content_segs, validate_data_df, validate_segs, vectorizer_tfidf,
+                              model)
 
 
 if __name__ == '__main__':
-    logger.info("########################################")
-    logger.info("start train")
-    logger.info("########################################")
     train_mentioned()
 
     # validate traffic
