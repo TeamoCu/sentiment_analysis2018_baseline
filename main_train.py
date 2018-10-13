@@ -30,19 +30,12 @@ def train_mentioned(train_data, train_segs, validate_data, validate_segs, vector
     # all the three labels equal -2 means mentioned this item,covert it to 1
     # else convert it to 0
     train_label = ori_labels.T.sum().abs() // sum_label_val
-
-    content_train = train_data_df.iloc[0:train_data_size, 1]
-    # seg and vectorizer train data
     logger.debug("begin to train data")
     cw = {0: 3}
     mentioned_clf = TextClassifier(vectorizer=vectorizer, class_weight=cw)
     mentioned_clf.fit(train_segs, train_label)
     logger.debug("begin to validate %s mentioned model", model_name)
     # load validate model
-    content_validate = validate_data_df.iloc[:, 1]
-    logger.debug("start seg validate data")
-    validate_data_segs = seg_words(content_validate)
-    logger.debug("complete seg validate data")
     ori_labels = validate_data.iloc[0:, column_list]
     validate_labels = ori_labels.T.sum().abs() // sum_label_val
     y_pre = mentioned_clf.predict(validate_segs)
@@ -64,7 +57,7 @@ def train_traffic(train_data, validate_data):
     logger.info("begin to train traffic model")
     # Get columns(model_name) from train data
     columns = train_data.columns.values.tolist()
-    ori_df = train_data_df.iloc[0:config.train_data_size, [1, 2, 3, 4]]
+    ori_df = train_data.iloc[0:config.train_data_size, [1, 2, 3, 4]]
     # filter data not mentioned traffic
     filter_data = ori_df.loc[(ori_df[columns[2]] != -2) | (ori_df[columns[3]] != -2) | (ori_df[columns[4]] != -2)]
     logger.info("filter data mentioned traffic,data size:%d", filter_data.size / 4)
@@ -109,7 +102,7 @@ def train_service(train_data, validate_data, model_name):
     logger.info("begin to train %s model", model_name)
     # Get columns(model_name) from train data
     columns = train_data.columns.values.tolist()
-    ori_df = train_data_df.iloc[0:config.train_data_size, [1, 5, 6, 7, 8]]
+    ori_df = train_data.iloc[0:config.train_data_size, [1, 5, 6, 7, 8]]
     # filter data not mentioned traffic
     filter_data = ori_df.loc[(ori_df[columns[5]] != -2) | (ori_df[columns[6]] != -2) | (ori_df[columns[7]] != -2) | (
             ori_df[columns[8]] != -2)]
@@ -193,14 +186,14 @@ def validate_model(validate_data, columns, mentioned_clf, clfs):
     logger.info("complete validate model")
 
 
-def validate(model_name, columns_start, columns_end):
-    columns = validate_data_df.columns.values.tolist()[columns_start:columns_end]
-    m_clf = joblib.load(config.model_save_path + +model_name + "_mentioned.pkl")
-    clf_dict = dict()
-    for column in columns:
-        clf = joblib.load(config.model_save_path + column + ".pkl")
-        clf_dict[column] = clf
-    validate_model(validate_data_df, columns, m_clf, clf_dict)
+# def validate(model_name, columns_start, columns_end):
+#     columns = validate_data_df.columns.values.tolist()[columns_start:columns_end]
+#     m_clf = joblib.load(config.model_save_path + +model_name + "_mentioned.pkl")
+#     clf_dict = dict()
+#     for column in columns:
+#         clf = joblib.load(config.model_save_path + column + ".pkl")
+#         clf_dict[column] = clf
+#     validate_model(validate_data_df, columns, m_clf, clf_dict)
 
 
 def vectorizer():
@@ -226,7 +219,7 @@ def train_mentioned():
     train_content_segs = seg_words(content_train)
 
     logger.debug("start seg validate data")
-    content_validate = validate_data_df[0:, 1]
+    content_validate = validate_data_df.iloc[0:, 1]
     validate_segs = seg_words(content_validate)
 
     vectorizer_tfidf = joblib.load(config.model_save_path + vec_name)
