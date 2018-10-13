@@ -6,8 +6,8 @@ import os
 import numpy as np
 from sklearn.externals import joblib
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import classification_report
 from sklearn.metrics import f1_score
-from sklearn.metrics import precision_score, recall_score, classification_report
 
 import config
 from Logger import logger
@@ -33,7 +33,6 @@ def train_mentioned(train_data, validate_data, model_name, start, end):
     # seg and vectorizer train data
     logger.debug("start seg train data")
     train_content_segs = seg_words(content_train)
-    logger.debug("complete seg train data")
     vectorizer_tfidf = joblib.load(config.model_save_path + vec_name)
     logger.debug("vocab shape: %s" % np.shape(vectorizer_tfidf.vocabulary_.keys()))
     logger.debug("begin to train data")
@@ -157,7 +156,7 @@ def train_service(train_data, validate_data, model_name):
 
 def report(y_true, tmp_predict, model_name=""):
     report_str = classification_report(y_true, tmp_predict)
-    logger.info("Report for model \s:\n\s", model_name, report_str)
+    logger.info("Report for model %s:\n%s", model_name, report_str)
 
 
 def validate_model(validate_data, columns, mentioned_clf, clfs):
@@ -216,6 +215,7 @@ def vectorizer():
 
 
 if __name__ == '__main__':
+    logger.info("Report for model \s \s", "1", "2")
     logger.info("########################################")
     logger.info("start train")
     logger.info("########################################")
@@ -232,5 +232,5 @@ if __name__ == '__main__':
     # train_traffic(train_data_df, validate_data_df)
     # validate_traffic()
     # train service
-    train_service(train_data_df, validate_data_df, 'service')
-    validate('service', 5, 8)
+    # train_service(train_data_df, validate_data_df, 'service')
+    # validate('service', 5, 8)
