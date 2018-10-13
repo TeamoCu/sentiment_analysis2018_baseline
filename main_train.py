@@ -16,9 +16,11 @@ from model import TextClassifier
 
 stopwords = [line.strip() for line in io.open(config.stop_word_path, 'r', encoding='utf-8').readlines()]
 vec_name = "tf-idf.vec"
+models = [('service', 5, 8), ('traffic', 2, 4), ('price', 9, 11), ('enviorment', 12, 15)]
 
 
-def train_mentioned(train_data, validate_data, model_name, start, end):
+def train_mentioned(train_data, train_segs, validate_data, validate_segs, vectorizer, train_model):
+    model_name = train_model[0], start = train_model[1], end = train_model[2]
     logger.info("start train %s mentioned", model_name)
     train_data_size = config.train_data_size
     sum_label_val = (end - start + 1) * 2
@@ -31,13 +33,10 @@ def train_mentioned(train_data, validate_data, model_name, start, end):
 
     content_train = train_data_df.iloc[0:train_data_size, 1]
     # seg and vectorizer train data
-    logger.debug("start seg train data")
-    train_content_segs = seg_words(content_train)
-    vectorizer_tfidf = joblib.load(config.model_save_path + vec_name)
-    logger.debug("vocab shape: %s" % np.shape(vectorizer_tfidf.vocabulary_.keys()))
     logger.debug("begin to train data")
-    mentioned_clf = TextClassifier(vectorizer=vectorizer_tfidf)
-    mentioned_clf.fit(train_content_segs, train_label)
+    cw = {0: 3}
+    mentioned_clf = TextClassifier(vectorizer=vectorizer, class_weight=cw)
+    mentioned_clf.fit(train_segs, train_label)
     logger.debug("begin to validate %s mentioned model", model_name)
     # load validate model
     content_validate = validate_data_df.iloc[:, 1]
@@ -46,7 +45,7 @@ def train_mentioned(train_data, validate_data, model_name, start, end):
     logger.debug("complete seg validate data")
     ori_labels = validate_data.iloc[0:, column_list]
     validate_labels = ori_labels.T.sum().abs() // sum_label_val
-    y_pre = mentioned_clf.predict(validate_data_segs)
+    y_pre = mentioned_clf.predict(validate_segs)
     report(validate_labels, y_pre)
     score = f1_score(validate_labels, y_pre, average="macro")
     logger.info("validate done! %s mentioned model score:%s", model_name, str(score))
@@ -214,19 +213,33 @@ def vectorizer():
     logger.info("succes to save vectorizer")
 
 
-if __name__ == '__main__':
-    logger.info("Report for model \s \s", "1", "2")
+def train_mentioned():
     logger.info("########################################")
-    logger.info("start train")
+    logger.info("start train mentioned models")
     logger.info("########################################")
     # load train data
     train_data_df = load_data_from_csv(config.train_data_path)
     validate_data_df = load_data_from_csv(config.validate_data_path)
 
-    models = [('service', 5, 8), ('traffic', 2, 4), ('price', 9, 11), ('enviorment', 12, 15)]
+    content_train = train_data_df.iloc[0:config.train_data_size, 1]
+    logger.debug("start seg train data")
+    train_content_segs = seg_words(content_train)
+
+    logger.debug("start seg validate data")
+    content_validate = validate_data_df[0:, 1]
+    validate_segs = seg_words(content_validate)
+
+    vectorizer_tfidf = joblib.load(config.model_save_path + vec_name)
+
     for model in models:
-        train_mentioned(train_data_df, validate_data_df, model[0], model[1], model[2])
-        # validate(model[0], model[1], model[2])
+        train_mentioned(train_data_df, train_content_segs, validate_data_df, validate_segs, vectorizer_tfidf, model)
+
+
+if __name__ == '__main__':
+    logger.info("########################################")
+    logger.info("start train")
+    logger.info("########################################")
+    train_mentioned()
 
     # validate traffic
     # train_traffic(train_data_df, validate_data_df)
