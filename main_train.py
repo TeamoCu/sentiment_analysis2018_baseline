@@ -16,7 +16,7 @@ from model import TextClassifier
 
 stopwords = [line.strip() for line in io.open(config.stop_word_path, 'r', encoding='utf-8').readlines()]
 vec_name = "tf-idf.vec"
-models = [('service', 5, 8), ('traffic', 2, 4), ('price', 9, 11), ('enviorment', 12, 15)]
+models = [('traffic', 2, 4), ('service', 5, 8), ('price', 9, 11), ('enviorment', 12, 15)]
 
 
 def train_mentioned_model(train_data, train_segs, validate_data, validate_segs, vectorizer, train_model):
@@ -33,7 +33,7 @@ def train_mentioned_model(train_data, train_segs, validate_data, validate_segs, 
     # else convert it to 0
     train_label = ori_labels.T.sum().abs() // sum_label_val
     logger.debug("begin to train data")
-    cw = {0: 3}
+    cw = {0: 5}
     mentioned_clf = TextClassifier(vectorizer=vectorizer, class_weight=cw)
     mentioned_clf.fit(train_segs, train_label)
     logger.debug("begin to validate %s mentioned model", model_name)
@@ -200,10 +200,12 @@ def validate_model(validate_data, columns, mentioned_clf, clfs):
 
 def vectorizer():
     logger.info("start to vectorizer content")
-    train_data = load_data_from_csv()
-    content_segs = seg_words(train_data.iloc[0:, 1])
+    train_data = load_data_from_csv(config.train_data_path)
+    content_segs = seg_words(train_data.iloc[0:config.train_data_size, 1])
     tf_idf = TfidfVectorizer(ngram_range=(1, 6), min_df=2, norm="l2", max_df=0.3)
     tf_idf.fit(content_segs)
+    if not os.path.exists(config.model_save_path):
+        os.makedirs(config.model_save_path)
     joblib.dump(tf_idf, config.model_save_path + vec_name, compress=True)
     logger.info("succes to save vectorizer")
 
@@ -223,7 +225,7 @@ def train_mentioned():
     logger.debug("start seg validate data")
     content_validate = validate_data_df.iloc[0:, 1]
     validate_segs = seg_words(content_validate)
-
+    logger.debug("load vectorizer")
     vectorizer_tfidf = joblib.load(config.model_save_path + vec_name)
 
     for model in models:

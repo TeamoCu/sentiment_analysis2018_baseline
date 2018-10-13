@@ -26,10 +26,10 @@ class TextClassifier():
 
     def features(self, x, y=None, train=False):
         if train:
-            logger.info("select features")
+            logger.debug("select features")
             # print self.vectorizer.transform(x)
             x = self.select.fit_transform(self.vectorizer.transform(x), y)
-            logger.info("select feature done")
+            logger.debug("select feature done")
         else:
             x = self.select.transform(self.vectorizer.transform(x))
         return x
