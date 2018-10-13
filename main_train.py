@@ -20,7 +20,9 @@ models = [('service', 5, 8), ('traffic', 2, 4), ('price', 9, 11), ('enviorment',
 
 
 def train_mentioned_model(train_data, train_segs, validate_data, validate_segs, vectorizer, train_model):
-    model_name = train_model[0], start = train_model[1], end = train_model[2]
+    model_name = train_model[0]
+    start = train_model[1]
+    end = train_model[2]
     logger.info("start train %s mentioned", model_name)
     train_data_size = config.train_data_size
     sum_label_val = (end - start + 1) * 2
