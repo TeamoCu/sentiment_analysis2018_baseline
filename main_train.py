@@ -33,7 +33,7 @@ def train_mentioned_model(train_data, train_segs, validate_data, validate_segs, 
     # else convert it to 0
     train_label = ori_labels.T.sum().abs() // sum_label_val
     logger.debug("begin to train data")
-    cw = [{0: w, 1: x} for w in range(1, 10), for x in range(1, 5)]
+    cw = [{0: w, 1: x} for w in range(1, 10) for x in range(1, 5)]
     mentioned_clf = TextClassifier(vectorizer=vectorizer, class_weight=cw)
     mentioned_clf.fit(train_segs, train_label)
     logger.debug("begin to validate %s mentioned model", model_name)
@@ -67,7 +67,7 @@ def train_specific_model(train_data):
     scores = dict()
     for model_name in columns[:-1]:
         logger.info("begin to train %s model", model_name)
-        cw = [{-2: a, -1: b, 0: w, 1: x} for a in range(1, 3), for b in range(1, 8) for w in range(1, 8), for x in
+        cw = [{-2: a, -1: b, 0: w, 1: x} for a in range(1, 3) for b in range(1, 8) for w in range(1, 8) for x in
               range(1, 8)]
         positive_clf = TextClassifier(vectorizer=vectorizer, class_weight=cw)
         y_label = train_data[model_name]
