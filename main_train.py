@@ -71,11 +71,11 @@ def train_specific_model(train_data):
         cw = [{-2: a, -1: b, 0: w, 1: x} for a in range(1, 3) for b in range(1, 8) for w in range(1, 8) for x in
               range(1, 8)]
         positive_clf = TextClassifier(vectorizer=vectorizer, class_weight=cw)
-        y_label = train_data[model_name]
+        y_label = train_data[model_name].iloc[0: config.train_data_size]
         positive_clf.fit(content_segments, y_label)
 
         y_pre = positive_clf.predict(validata_segs)
-        y_true = validata_segs[model_name]
+        y_true = validata_segs[model_name].iloc[0:]
         report(y_true, y_pre)
         score = f1_score(y_true, y_pre, average="macro")
         logger.info("score for model:%s is %s ", model_name, str(score))
@@ -166,9 +166,8 @@ def filter_data(data, model):
     lable_sum = (model[2] - model[1] + 1) * -2
     target_columns = columns[model[1]:model[2] + 1]
     target_columns.append("content")
-    logger.debug("filter data for columns:%s", target_columns)
-    target_data = data[target_columns]
-    target_data["sum"] = target_data[columns[model[1]:model[2] + 1]].T.sum().T
+    target_data = data.loc[:, target_columns]
+    target_data["sum"] = data[columns[model[1]:model[2] + 1]].T.sum().T
     target_data = target_data.loc[target_data['sum'] > lable_sum, target_columns]
     return target_data
 

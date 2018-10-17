@@ -14,10 +14,10 @@ import config
 class TextClassifier:
 
     def __init__(self, vectorizer, class_weight='balanced', scoring="f1_macro"):
-        classifier = LinearSVC(class_weight=class_weight)
+        classifier = LinearSVC()
         # classifier = SVC(kernel="linear")
         # params = {'C': [1, 10, 100, 1000], 'class_weight': [{0: w, -1: w} for w in [2, 3, 4, 5, 6]]}
-        params = {'C': [1, 10, 100, 1000]}
+        params = {'C': [1, 10, 100, 1000], 'class_weight': class_weight}
         # params = {'C': [1, 10, 100, 1000], 'gamma': [0.01, 0.001, 0.0001]}
 
         self.classifier = GridSearchCV(classifier, params, verbose=3, n_jobs=config.n_jobs, scoring=scoring)
