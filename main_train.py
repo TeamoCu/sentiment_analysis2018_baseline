@@ -33,7 +33,7 @@ def train_mentioned_model(train_data, train_segs, validate_data, validate_segs, 
     # else convert it to 0
     train_label = ori_labels.T.sum().abs() // sum_label_val
     logger.debug("begin to train data")
-    cw = {0: 5}
+    cw = [{0: w, 1: x} for w in range(1, 10), for x in range(1, 5)]
     mentioned_clf = TextClassifier(vectorizer=vectorizer, class_weight=cw)
     mentioned_clf.fit(train_segs, train_label)
     logger.debug("begin to validate %s mentioned model", model_name)
@@ -51,101 +51,37 @@ def train_mentioned_model(train_data, train_segs, validate_data, validate_segs, 
         if not os.path.exists(model_save_path):
             os.makedirs(model_save_path)
 
-        joblib.dump(mentioned_clf, model_save_path + model_name + "_mentioned.pkl")
+        joblib.dump(mentioned_clf, model_save_path + model_name + "_mentioned.pkl", compress=3)
     return mentioned_clf
 
 
-def train_traffic(train_data, validate_data):
-    logger.info("begin to train traffic model")
-    # Get columns(model_name) from train data
+def train_specific_model(train_data):
     columns = train_data.columns.values.tolist()
-    ori_df = train_data.iloc[0:config.train_data_size, [1, 2, 3, 4]]
-    # filter data not mentioned traffic
-    filter_data = ori_df.loc[(ori_df[columns[2]] != -2) | (ori_df[columns[3]] != -2) | (ori_df[columns[4]] != -2)]
-    logger.info("filter data mentioned traffic,data size:%d", filter_data.size / 4)
-    logger.debug("begin to seg word for traffic model")
-    model_content_seg = seg_words(filter_data.iloc[0:, 0])
-    logger.debug("end to seg word")
-    # new vectorizer for specific model
-    vectorizer_tfidf = TfidfVectorizer(analyzer='word', ngram_range=(1, 6), min_df=3, norm='l2', max_df=0.4,
-                                       stop_words=stopwords)
-    vectorizer_tfidf.fit(model_content_seg)
-    logger.debug("complete train feature extraction")
-    logger.info("vocab shape: %s" % np.shape(vectorizer_tfidf.vocabulary_.keys()))
-    # filter validate data
-    validate_data = validate_data.loc[
-        (validate_data[columns[2]] != -2) | (validate_data[columns[3]] != -2) | (validate_data[columns[4]] != -2)]
-    content_validate = validate_data.iloc[0:, 1]
-    validate_data_segs = seg_words(content_validate)
-
+    content_segments = seg_words(train_data.content.iloc[0:config.train_data_size])
+    logger.debug("seg train content")
+    vectorizer = joblib.load(config.model_save_path + vec_name)
+    logger.debug("load vectorizer")
+    validate_data_df = load_data_from_csv(config.validate_data_path)
+    validata_segs = seg_words(validate_data_df.content)
+    logger.debug("seg validate content")
     scores = dict()
-    for index, column in enumerate(columns[2:5]):
-        logger.info("start train %s model" % column)
-        positive_label = filter_data.iloc[0:, 1 + index]
-        positive_clf = TextClassifier(vectorizer=vectorizer_tfidf, class_weight={-1: 3, 0: 8})
-        positive_clf.fit(model_content_seg, positive_label)
-        logger.info("complete train %s model" % column)
-        final_score = positive_clf.get_f1_score(validate_data_segs, validate_data.iloc[0:, [2 + index]])
-        scores[column] = final_score
-        logger.info("score for model:%s is %s ", column, str(final_score))
-        joblib.dump(positive_clf, config.model_save_path + column + ".pkl")
-        logger.debug("save model %s", column)
-    str_score = "\n"
+    for model_name in columns[:-1]:
+        logger.info("begin to train %s model", model_name)
+        cw = [{-2: a, -1: b, 0: w, 1: x} for a in range(1, 3), for b in range(1, 8) for w in range(1, 8), for x in
+              range(1, 8)]
+        positive_clf = TextClassifier(vectorizer=vectorizer, class_weight=cw)
+        y_label = train_data[model_name]
+        positive_clf.fit(content_segments, y_label)
+
+        y_pre = positive_clf.predict(validata_segs)
+        y_true = validata_segs[model_name]
+        report(y_true, y_pre)
+        score = f1_score(y_true, y_pre, average="macro")
+        logger.info("score for model:%s is %s ", model_name, str(score))
+        scores[model_name] = score
+        joblib.dump(positive_clf, config.model_save_path + model_name + ".pkl", compress=3)
     score = np.mean(list(scores.values()))
-    for column in columns[2:5]:
-        str_score = str_score + column + ":" + str(scores[column]) + "\n"
-
-    logger.info("f1_scores: %s\n" % str_score)
-    logger.info("f1_score: %s" % score)
-    logger.info("complete validate model")
-
-
-def train_service(train_data, validate_data, model_name):
-    logger.info("begin to train %s model", model_name)
-    # Get columns(model_name) from train data
-    columns = train_data.columns.values.tolist()
-    ori_df = train_data.iloc[0:config.train_data_size, [1, 5, 6, 7, 8]]
-    # filter data not mentioned traffic
-    filter_data = ori_df.loc[(ori_df[columns[5]] != -2) | (ori_df[columns[6]] != -2) | (ori_df[columns[7]] != -2) | (
-            ori_df[columns[8]] != -2)]
-    logger.info("filter data mentioned %s,data size:%d", model_name, filter_data.size / 5)
-    logger.debug("begin to seg word for %s model", model_name)
-    model_content_seg = seg_words(filter_data.iloc[0:, 0])
-    logger.debug("end to seg word")
-    # new vectorizer for specific model
-    vectorizer_tfidf = TfidfVectorizer(analyzer='word', ngram_range=(1, 6), min_df=3, norm='l2', max_df=0.4,
-                                       stop_words=stopwords)
-    vectorizer_tfidf.fit(model_content_seg)
-    logger.debug("complete train feature extraction")
-    logger.info("vocab shape: %s" % np.shape(vectorizer_tfidf.vocabulary_.keys()))
-    # filter validate data
-    validate_data = validate_data.loc[
-        (ori_df[columns[5]] != -2) | (ori_df[columns[6]] != -2) | (ori_df[columns[7]] != -2) | (
-                ori_df[columns[8]] != -2)]
-    content_validate = validate_data.iloc[0:, 1]
-    validate_data_segs = seg_words(content_validate)
-
-    scores = dict()
-    for index, column in enumerate(columns[5:9]):
-        logger.info("start train %s model" % column)
-        positive_label = filter_data.iloc[0:, 1 + index]
-        # positive_clf = TextClassifier(vectorizer=vectorizer_tfidf, class_weight={-1: 5, 0: 10})
-        positive_clf = TextClassifier(vectorizer=vectorizer_tfidf)
-        positive_clf.fit(model_content_seg, positive_label)
-        logger.info("complete train %s model" % column)
-        final_score = positive_clf.get_f1_score(validate_data_segs, validate_data.iloc[0:, [2 + index]])
-        scores[column] = final_score
-        logger.info("score for model:%s is %s ", column, str(final_score))
-        joblib.dump(positive_clf, config.model_save_path + column + ".pkl")
-        logger.debug("save model %s", column)
-    str_score = "\n"
-    score = np.mean(list(scores.values()))
-    for column in columns[2:5]:
-        str_score = str_score + column + ":" + str(scores[column]) + "\n"
-
-    logger.info("f1_scores: %s\n" % str_score)
-    logger.info("f1_score: %s" % score)
-    logger.info("complete validate model")
+    logger.info("f1_scores: %s" % score)
 
 
 def report(y_true, tmp_predict, model_name=""):
@@ -153,49 +89,40 @@ def report(y_true, tmp_predict, model_name=""):
     logger.info("Report for model %s:\n%s", model_name, report_str)
 
 
-def validate_model(validate_data, columns, mentioned_clf, clfs):
-    logger.info("Begin validate")
-    content_validate = validate_data.iloc[:, 1]
-    validate_data_segs = seg_words(content_validate)
-    logger.debug("seg validate data done")
-
-    scores = dict()
-    predict = mentioned_clf.predict(validate_data_segs)
-    predict = predict * -2
-    for column in columns:
-        logger.debug("predict:%s", column)
-        tmp_predict = predict.copy()
-        file = io.open(config.predict_result_path + column + ".txt", "w", encoding="utf-8")
-        for v_index, v_content_seg in enumerate(validate_data_segs):
-            proba_str = "\t"
-            if tmp_predict[v_index] == 0:
-                tmp_predict[v_index] = clfs[column].predict([v_content_seg])
-                proba = clfs[column].predict_proba([v_content_seg])
-                proba_str = str(proba)
-            file.write(str(tmp_predict[v_index]) + proba_str + u"\n")
-        file.close()
-        report(validate_data[column], tmp_predict)
-        score = f1_score(validate_data[column], tmp_predict, average='macro')
-        scores[column] = score
-
-    str_score = "\n"
-    score = np.mean(list(scores.values()))
-    for column in columns:
-        str_score = str_score + column + ":" + str(scores[column]) + "\n"
-
-    logger.info("f1_scores: %s\n" % str_score)
-    logger.info("f1_score: %s" % score)
-    logger.info("complete validate model")
-
-
-# def validate(model_name, columns_start, columns_end):
-#     columns = validate_data_df.columns.values.tolist()[columns_start:columns_end]
-#     m_clf = joblib.load(config.model_save_path + +model_name + "_mentioned.pkl")
-#     clf_dict = dict()
+#
+# def validate_model(validate_data, columns, mentioned_clf, clfs):
+#     logger.info("Begin validate")
+#     content_validate = validate_data.iloc[:, 1]
+#     validate_data_segs = seg_words(content_validate)
+#     logger.debug("seg validate data done")
+#
+#     scores = dict()
+#     predict = mentioned_clf.predict(validate_data_segs)
+#     predict = predict * -2
 #     for column in columns:
-#         clf = joblib.load(config.model_save_path + column + ".pkl")
-#         clf_dict[column] = clf
-#     validate_model(validate_data_df, columns, m_clf, clf_dict)
+#         logger.debug("predict:%s", column)
+#         tmp_predict = predict.copy()
+#         file = io.open(config.predict_result_path + column + ".txt", "w", encoding="utf-8")
+#         for v_index, v_content_seg in enumerate(validate_data_segs):
+#             proba_str = "\t"
+#             if tmp_predict[v_index] == 0:
+#                 tmp_predict[v_index] = clfs[column].predict([v_content_seg])
+#                 proba = clfs[column].predict_proba([v_content_seg])
+#                 proba_str = str(proba)
+#             file.write(str(tmp_predict[v_index]) + proba_str + u"\n")
+#         file.close()
+#         report(validate_data[column], tmp_predict)
+#         score = f1_score(validate_data[column], tmp_predict, average='macro')
+#         scores[column] = score
+#
+#     str_score = "\n"
+#     score = np.mean(list(scores.values()))
+#     for column in columns:
+#         str_score = str_score + column + ":" + str(scores[column]) + "\n"
+#
+#     logger.info("f1_scores: %s\n" % str_score)
+#     logger.info("f1_score: %s" % score)
+#     logger.info("complete validate model")
 
 
 def vectorizer():
@@ -233,9 +160,30 @@ def train_mentioned():
                               model)
 
 
-if __name__ == '__main__':
-    train_mentioned()
+def filter_data(data, model):
+    columns = data.columns.values.tolist()
+    lable_sum = (model[2] - model[1] + 1) * -2
+    target_columns = columns[model[1]:model[2] + 1].append('content')
+    logger.debug("filter data for columns:%s", target_columns)
+    target_data = data.loc[target_columns]
+    target_data['sum'] = target_data[columns[model[1]:model[2] + 1]].T.sum().T
+    target_data = target_data.iloc[target_data['sum'] > lable_sum, target_columns]
+    return target_data
 
+
+def train_model():
+    logger.info("########################################")
+    logger.info("start train models")
+    logger.info("########################################")
+    train_data_df = load_data_from_csv(config.train_data_path)
+    for model in models:
+        data_to_train = filter_data(train_data_df, model)
+        train_specific_model(data_to_train)
+
+
+if __name__ == '__main__':
+    # train_mentioned()
+    train_model()
     # validate traffic
     # train_traffic(train_data_df, validate_data_df)
     # validate_traffic()
