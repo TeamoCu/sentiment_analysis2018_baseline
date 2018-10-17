@@ -20,7 +20,7 @@ class TextClassifier:
         params = {'C': [1, 10, 100, 1000], 'class_weight': class_weight}
         # params = {'C': [1, 10, 100, 1000], 'gamma': [0.01, 0.001, 0.0001]}
 
-        self.classifier = GridSearchCV(classifier, params, verbose=3, n_jobs=config.n_jobs, scoring=scoring)
+        self.classifier = GridSearchCV(classifier, params, verbose=2, n_jobs=config.n_jobs)
         self.vectorizer = vectorizer
         self.select = SelectKBest(chi2, k=2500)
 

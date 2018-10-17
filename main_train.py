@@ -68,8 +68,8 @@ def train_specific_model(train_data):
     scores = dict()
     for model_name in columns[:-1]:
         logger.info("begin to train %s model", model_name)
-        cw = [{-2: a, -1: b, 0: w, 1: x} for a in range(1, 3) for b in range(1, 8) for w in range(1, 8) for x in
-              range(1, 8)]
+        cw = [{-2: a, -1: b, 0: w, 1: x} for a in range(1, 5) for b in range(3, 10) for w in range(3, 20) for x in
+              range(3, 10)]
         positive_clf = TextClassifier(vectorizer=vectorizer, class_weight=cw)
         y_label = train_data[model_name].iloc[0: config.train_data_size]
         positive_clf.fit(content_segments, y_label)
