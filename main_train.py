@@ -57,8 +57,9 @@ def train_mentioned_model(train_data, train_segs, validate_data, validate_segs, 
 
 def train_specific_model(train_data):
     columns = train_data.columns.values.tolist()
+    logger.debug("begin to seg train content")
     content_segments = seg_words(train_data.content.iloc[0:config.train_data_size])
-    logger.debug("seg train content")
+    logger.debug("seg train content done")
     vectorizer = joblib.load(config.model_save_path + vec_name)
     logger.debug("load vectorizer")
     validate_data_df = load_data_from_csv(config.validate_data_path)
@@ -161,13 +162,14 @@ def train_mentioned():
 
 
 def filter_data(data, model):
-    columns = data.columns.values.tolist()
+    columns = [column for column in data]
     lable_sum = (model[2] - model[1] + 1) * -2
-    target_columns = columns[model[1]:model[2] + 1].append('content')
+    target_columns = columns[model[1]:model[2] + 1]
+    target_columns.append("content")
     logger.debug("filter data for columns:%s", target_columns)
-    target_data = data.loc[target_columns]
-    target_data['sum'] = target_data[columns[model[1]:model[2] + 1]].T.sum().T
-    target_data = target_data.iloc[target_data['sum'] > lable_sum, target_columns]
+    target_data = data[target_columns]
+    target_data["sum"] = target_data[columns[model[1]:model[2] + 1]].T.sum().T
+    target_data = target_data.loc[target_data['sum'] > lable_sum, target_columns]
     return target_data
 
 
