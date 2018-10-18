@@ -68,19 +68,20 @@ def train_specific_model(train_data):
     scores = dict()
     for model_name in columns[:-1]:
         logger.info("begin to train %s model", model_name)
-        cw = [{-2: a, -1: b, 0: w, 1: x} for a in range(1, 5) for b in range(3, 10) for w in range(3, 20) for x in
-              range(3, 10)]
+        cw = [{-2: a, -1: b, 0: w, 1: x} for a in range(1, 3) for b in range(5, 10) for w in range(10, 15) for x in
+              range(5, 8)]
+        # cw = {0: 7, 1: 6, -1: 6, -2: 1}
         positive_clf = TextClassifier(vectorizer=vectorizer, class_weight=cw)
         y_label = train_data[model_name].iloc[0: config.train_data_size]
         positive_clf.fit(content_segments, y_label)
 
         y_pre = positive_clf.predict(validata_segs)
-        y_true = validata_segs[model_name].iloc[0:]
+        y_true = validate_data_df[model_name].iloc[0:]
         report(y_true, y_pre)
         score = f1_score(y_true, y_pre, average="macro")
         logger.info("score for model:%s is %s ", model_name, str(score))
         scores[model_name] = score
-        joblib.dump(positive_clf, config.model_save_path + model_name + ".pkl", compress=3)
+        joblib.dump(positive_clf, config.model_save_path + model_name + ".pkl", compress=True)
     score = np.mean(list(scores.values()))
     logger.info("f1_scores: %s" % score)
 
@@ -134,7 +135,7 @@ def vectorizer():
     tf_idf.fit(content_segs)
     if not os.path.exists(config.model_save_path):
         os.makedirs(config.model_save_path)
-    joblib.dump(tf_idf, config.model_save_path + vec_name, compress=True)
+    joblib.dump(tf_idf, config.model_save_path + vec_name)
     logger.info("succes to save vectorizer")
 
 
@@ -183,6 +184,7 @@ def train_model():
 
 
 if __name__ == '__main__':
+    vectorizer()
     # train_mentioned()
     train_model()
     # validate traffic
